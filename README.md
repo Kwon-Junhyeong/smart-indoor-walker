@@ -33,12 +33,6 @@ Mapping and goal driving are separate modes. Cartographer builds the map from th
 
 `serial_motor_driver.py` turns `cmd_vel` into one PWM value per wheel and sends it to the Arduino as a text line. The Arduino drives the motors, counts encoder edges, and reports the totals 50 times a second. The driver integrates them into `/odom` and the `odom` to `base_footprint` transform.
 
-## The map it built
-
-![The saved map, drawn from maps/room1.pgm.](docs/map.png)
-
-This is the map the walker saved on 1 December 2025, drawn from `maps/room1.pgm`. Nav2 loads `maps/room1.yaml`, which references this image.
-
 ## How it is used
 
 ![The user sits on the walker and touches the toilet on its screen. The walker drives from the bedroom to the toilet.](docs/home.png)
