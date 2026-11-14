@@ -2,7 +2,7 @@
 
 A full-size indoor walker for people who cannot walk safely on their own at home. The user sits on it, touches a point on the map shown on its screen, and the walker drives there. The seat rises and lowers to match a chair, a bed or a toilet.
 
-Over 70% of falls among older adults happen at home, most often on the way to the toilet or while sitting down and standing up (KDCA; Korea Consumer Agency). An ordinary walker does not help someone who cannot stand, and it is rarely within reach at the moment it is needed. The project asked whether a person could spend the day on one device and still get to where they want to go.
+Over 70% of falls among older adults happen at home, most often on the way to the toilet or while sitting down and standing up (KDCA; Korea Consumer Agency). Those accidents cluster at the moment of sitting down or standing up, and at night, when nobody else is around. Existing walking aids do not move a seated person, so they do not help someone who cannot stand. The project asked whether a person could spend the day on one device and still get to where they want to go without waiting for help.
 
 The prototype was built from September to December 2025 for the 2025 SDGs Social Problem-Solving Competition. In the demo it mapped a campus corridor, drove to a point picked on the map, and lifted its seat. After the competition I cleaned up the software, rewrote the obstacle avoidance, and added the PC simulations below.
 
@@ -13,7 +13,7 @@ Most of the early work went into questions about the hardware and the user, befo
 - **Carry a seated person through a home.** The wheels have to get over door thresholds and the motors have to move the loaded frame. The wheel motors and their driver were chosen with margin for this instead of by price. They are KRW 80,000 of the KRW 320,000 in parts; the LiDAR is 100,000, the frame 50,000, the two seat actuators 50,000 and the electronics 40,000.
 - **Let the user stay on it.** The seat height adjusts to the chair, bed or toilet the user is moving to, and the rear of the frame opens so the user can sit down straight from a bed or sofa.
 - **Go where the user points.** Touching the map and arriving there had to work every time and without a wait. This was the centre of the project and of the demo, and it is why mapping, localization and planning all run on the walker itself.
-- **Be affordable to the people who need it.** Paid care was put at around KRW 2,000,000. The target price was KRW 500,000 to 550,000, and the project checked which support programs such a device could fall under: the assistive device support program, welfare equipment under long-term care insurance, and local government programs for older adults.
+- **Be affordable to the people who need it.** A paid caregiver costs around KRW 2,000,000 a month. The parts cost KRW 320,000, and the selling price was estimated at about KRW 500,000 once the frame is made of a sturdier material and the build is serviceable. The project also checked which support programs such a device could fall under: the assistive device support program, welfare equipment under long-term care insurance, and local government programs for older adults.
 
 | Part | |
 |---|---|
