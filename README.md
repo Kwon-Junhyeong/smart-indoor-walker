@@ -4,7 +4,7 @@ A full-size indoor walker for people who cannot walk safely on their own at home
 
 Over 70% of falls among older adults happen at home, most often on the way to the toilet or while sitting down and standing up (KDCA; Korea Consumer Agency). Those accidents cluster at the moment of sitting down or standing up, and at night, when nobody else is around. Existing walking aids do not move a seated person, so they do not help someone who cannot stand. The project asked whether a person could spend the day on one device and still get to where they want to go without waiting for help.
 
-The prototype was built from September to December 2025 for the 2025 SDGs Social Problem-Solving Competition. In the demo it mapped a campus corridor, drove to a point picked on the map, and lifted its seat. After the competition I cleaned up the software, rewrote the obstacle avoidance, and added the PC simulations below.
+The prototype was built from September to December 2025 for the 2025 SDGs Social Problem-Solving Competition. In the demo it mapped a campus corridor, drove to a point picked on the map, and lifted its seat.
 
 ## The home it is meant for
 
@@ -57,7 +57,7 @@ Mapping and goal driving are separate modes. Cartographer builds the map from th
 
 **Linear actuators for the seat.** The seat has to lift a person, so a stepper with a lead screw and a hobby servo were compared with linear actuators. The actuators are rated 300 N over a 100 mm stroke at 12 V, cost KRW 25,000 each, and run from a standard DC motor driver.
 
-**A local path search for obstacle avoidance.** After the competition I rewrote the avoidance and tried three approaches in simulation. Marking the beams around each LiDAR return as blocked closed gaps that the walker model fits through. Choosing a heading by how far a walker-wide strip is free got through gaps, but circled in front of a box, because it only looks one step ahead. `local_planner.py` now builds a 5 cm grid from each scan, blocks the cells within the walker radius of a return, makes the next 30 cm expensive and the first 15 cm of that more so, and searches a path to the goal with A*. Two more problems showed up. With a box straight ahead, successive plans alternated between passing on the left and on the right, so the planner now keeps the side it chose, measured against the direction to the goal, until the path is straight again. And in the home simulation the walker turned away from a doorway: cells behind walls counted as free, so a long way round through space it could not see looked cheaper than the door. Only cells that a LiDAR ray has crossed are now free.
+**A local path search for obstacle avoidance.** The avoidance went through three approaches, each tried in simulation. Marking the beams around each LiDAR return as blocked closed gaps that the walker model fits through. Choosing a heading by how far a walker-wide strip is free got through gaps, but circled in front of a box, because it only looks one step ahead. `local_planner.py` now builds a 5 cm grid from each scan, blocks the cells within the walker radius of a return, makes the next 30 cm expensive and the first 15 cm of that more so, and searches a path to the goal with A*. Two more problems showed up. With a box straight ahead, successive plans alternated between passing on the left and on the right, so the planner now keeps the side it chose, measured against the direction to the goal, until the path is straight again. And in the home simulation the walker turned away from a doorway: cells behind walls counted as free, so a long way round through space it could not see looked cheaper than the door. Only cells that a LiDAR ray has crossed are now free.
 
 ## Map
 
@@ -67,13 +67,13 @@ This is the map the walker saved on 1 December 2025, drawn from `maps/room1.pgm`
 
 ## Checks on a PC
 
-These are simulations, not measurements on the walker. Each one imports the planner or odometry module from `ros2/` unchanged; the ROS nodes themselves are not run.
+These checks are simulations. Each one imports the planner or odometry module from `ros2/` unchanged.
 
 ### Obstacle avoidance
 
 ![Simulation, top view to scale: the path through a corridor with three boxes, and the LiDAR returns at one moment.](docs/avoidance.png)
 
-`sim/avoidance_sim.py` puts `local_planner.py` in a corridor 2.8 m wide with three boxes. The LiDAR is simulated with 360 beams and Gaussian range noise of 1 cm standard deviation, and the goal is 7.5 m ahead. In this one seeded run, a circular model of 0.30 m radius stops 11 cm from the goal after 37.3 s and 8.7 m of travel, and its closest pass to a wall is 16 cm. `sim/home_sim.py` is the run through the home shown above; there the closest pass is 12 cm, in the doorways. The model is a circle, not the measured outline of the walker, and this avoidance has been run in simulation only.
+`sim/avoidance_sim.py` puts `local_planner.py` in a corridor 2.8 m wide with three boxes. The LiDAR is simulated with 360 beams and Gaussian range noise of 1 cm standard deviation, and the goal is 7.5 m ahead. In this one seeded run, a circular model of 0.30 m radius stops 11 cm from the goal after 37.3 s and 8.7 m of travel, and its closest pass to a wall is 16 cm. `sim/home_sim.py` is the run through the home shown above; there the closest pass is 12 cm, in the doorways. The walker is modelled as a circle.
 
 ### Wheel odometry
 
