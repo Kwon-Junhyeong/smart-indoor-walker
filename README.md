@@ -1,8 +1,10 @@
 # Smart Indoor Walker
 
-A full-size walker for older adults at home. It maps a floor with a 2D LiDAR, drives to a point picked on that map in a web console, steps around an obstacle, and raises and lowers its seat.
+This project is a full-size indoor walker that comes to its user. It maps the home with a 2D LiDAR, drives to a point picked on that map in a web console, and raises and lowers its seat to help with sitting down and standing up.
 
-The walker was built from September to December 2025 for the 2025 SDGs Social Problem-Solving Competition. This repository holds its software, cleaned up afterward, and a script that checks the odometry code on a PC.
+The reason is where older adults fall. Over 70% of their falls happen at home, most often on the way to the toilet or while sitting down and standing up (KDCA; Korea Consumer Agency). A walker only helps if it is within reach at that moment.
+
+The prototype was built from September to December 2025 for the 2025 SDGs Social Problem-Solving Competition, for KRW 320,000 in parts. In the demo it mapped a campus corridor, drove to a goal picked on the map, and lifted its seat. After the competition I cleaned up the software, rewrote the obstacle avoidance, and added the PC simulations below.
 
 | Part | |
 |---|---|
@@ -16,13 +18,25 @@ The walker was built from September to December 2025 for the 2025 SDGs Social Pr
 
 ![System figure. Blue: commands on their way to the motors. Orange: measurements and estimates. The tinted area runs on the RDK X5.](docs/system.png)
 
-The console talks to ROS through rosbridge. Clicking the map publishes a pose on `/goal_pose`. `goal_bridge.py` forwards it to Nav2, which localizes on the saved map with AMCL and publishes `cmd_vel`. The console also sends the drive pad as `cmd_vel`, the seat height, and the start and stop of the obstacle routine.
+The console talks to ROS through rosbridge. Clicking the map publishes a pose on `/goal_pose`. `goal_bridge.py` forwards it to Nav2, which localizes on the saved map with AMCL and publishes `cmd_vel`. The drive pad publishes `cmd_vel`. The console also sends seat up, down and stop commands, and starts and stops obstacle avoidance.
 
-Mapping and goal driving are separate modes. Cartographer builds the map from the LiDAR and the IMU, without wheel odometry. The map is saved, and Nav2 then loads it. Nav2, the obstacle routine and the drive pad all publish `cmd_vel` with no arbitration between them, so one is used at a time.
+Mapping and goal driving are separate modes. Cartographer builds the map from the LiDAR and the IMU. The map is saved, and Nav2 then loads it. Nav2, obstacle avoidance and the drive pad all publish `cmd_vel`. There is no command mux, so only one of them is run at a time, and the software does not enforce this.
 
-`serial_motor_driver.py` turns `cmd_vel` into one PWM value per wheel and sends it to the Arduino as a text line. The Arduino drives the motors and counts encoder A edges in interrupts, independently of the serial read loop on the Linux side. It reports the running totals 50 times a second, and the driver integrates them into `/odom` and the `odom` to `base_footprint` transform.
+`serial_motor_driver.py` turns `cmd_vel` into one PWM value per wheel and sends it to the Arduino as a text line. The Arduino drives the motors, counts encoder edges, and reports the totals 50 times a second. The driver integrates them into `/odom` and the `odom` to `base_footprint` transform.
 
-The left and right PWM gains are 380 and 480 per m/s. The odometry scales the left encoder increments by 1.0508 and the right ones by 1.0.
+## Design decisions
+
+**Two controllers.** The alternative was to wire the motor drivers and encoders straight to the RDK X5. Encoder edges have to be counted as they arrive, though, and a Linux process next to SLAM cannot promise that. The Arduino counts encoder A edges in interrupts, independently of the serial read loop on the Linux side, and the RDK X5 does everything that needs ROS.
+
+**Running totals on the serial link.** The Arduino could send the counts since its last line, which keeps the numbers small. A dropped line would then lose distance for good. It sends running totals instead, and the driver takes differences, so a lost line only delays the update.
+
+**Newest command only.** The driver keeps a `cmd_vel` queue of depth 1. If commands arrive faster than they are written to the serial port, the old ones are dropped instead of reaching the motors late.
+
+**One factor per wheel.** The two encoders disagreed by 5%. A single wheel radius cannot absorb that, so the odometry scales the left encoder increments by 1.0508 and the right ones by 1.0. The speed-to-PWM gains are set per wheel as well, 380 and 480 per m/s.
+
+**Linear actuators for the seat.** A stepper with a lead screw and a servo were the alternatives. The linear actuators cost KRW 25,000 each and run from a standard DC motor driver, so the seat uses the same kind of driver as the wheels.
+
+**A local path search for obstacle avoidance.** After the competition I rewrote the avoidance and tried three approaches in simulation. Marking the beams around each LiDAR return as blocked closed gaps that the walker model fits through. Choosing a heading by how far a walker-wide strip is free got through gaps, but circled in front of a box, because it only looks one step ahead. `local_planner.py` now builds a 5 cm grid from each scan, blocks the cells within the walker radius of a return, makes the next 30 cm expensive, and searches a path to the goal with A*. One more problem showed up: with a box straight ahead, successive plans alternated between passing on the left and on the right. The planner now keeps the side it chose, measured against the direction to the goal, until the path is straight again.
 
 ## Map
 
@@ -30,15 +44,25 @@ The left and right PWM gains are 380 and 480 per m/s. The odometry scales the le
 
 This is the map the walker saved on 1 December 2025, drawn from `maps/room1.pgm`. Nav2 loads `maps/room1.yaml`, which references this image.
 
-## Odometry checks
+## Checks on a PC
 
-These are simulations, not measurements on the walker. `sim/odometry_check.py` generates encoder totals and feeds them to `WheelOdometry`, the class the driver uses.
+These are simulations, not measurements on the walker. Each one imports the planner or odometry module from `ros2/` unchanged; the ROS nodes themselves are not run.
+
+### Obstacle avoidance
+
+![Simulation, top view to scale: the path through a corridor with three boxes, and the LiDAR returns at one moment.](docs/avoidance.png)
+
+`sim/avoidance_sim.py` puts `local_planner.py` in a corridor 2.8 m wide with three boxes. The LiDAR is simulated with 360 beams and Gaussian range noise of 1 cm standard deviation, and the goal is 7.5 m ahead. In this one seeded run, a circular model of 0.30 m radius stops 10 cm from the goal after 35.9 s and 8.5 m of travel, and its closest pass to a wall is 14 cm. The model is a circle, not the measured outline of the walker, and this avoidance has been run in simulation only.
+
+### Wheel odometry
 
 ![Simulation. Left: a straight drive, with and without the wheel factor. Right: final position difference against the probability that a serial line is dropped.](docs/odometry.png)
 
-The first check is the wheel factor. On a straight drive with a left encoder that under-reads by the calibrated amount, the raw counts turn the estimated heading by 6.1 degrees per metre, which puts the estimate 0.47 m to the side after 3 m. With the factor the estimate stays on the line. The stream is generated with the same factor, so this shows what the correction is worth, not how accurate the calibration is.
+`sim/odometry_check.py` generates encoder totals and feeds them to `WheelOdometry`, the class the driver uses.
 
-The second check is the serial format. The Arduino sends running totals, not the counts since the last line. Each line of an 8 m S-curve is dropped with a given probability, and the final position is compared with a run that loses nothing. Over 200 trials, the mean difference stays under 2 cm for running totals even at a drop probability of 50%. If each line carried an increment, the mean difference would be about 1.5 m at 20%.
+On a straight drive with a left encoder that under-reads by the calibrated amount, the raw counts turn the estimated heading by 6.1 degrees per metre, which puts the estimate 0.47 m to the side after 3 m. With the factor the estimate stays on the line. The stream is generated with the same factor, so this shows what the correction is worth, not how accurate the calibration is.
+
+For the serial format, each line of an 8 m S-curve is dropped with a given probability, and the final position is compared with a run that loses nothing. Over 200 trials, the mean difference stays under 2 cm for running totals even at a drop probability of 50%. If each line carried an increment, the mean difference would be about 1.5 m at 20%.
 
 ## Serial lines
 
@@ -48,21 +72,20 @@ The second check is the serial format. The Arduino sends running totals, not the
 | to the Arduino | `u`, `d`, `s` | seat up, down, stop |
 | from the Arduino | `e,<left>,<right>` | running encoder totals, every 20 ms |
 
-The driver keeps only the newest `cmd_vel` in its queue.
-
 ## Repository
 
 ```text
 ros2/serial_motor_driver.py   cmd_vel to wheel PWM, encoder totals to /odom and TF
 ros2/diff_drive.py            kinematics and odometry, no ROS dependency
 ros2/goal_bridge.py           /goal_pose to the Nav2 navigate_to_pose action
-ros2/avoidance_controller.py  obstacle routine
+ros2/avoidance_controller.py  obstacle avoidance node
+ros2/local_planner.py         grid path search from a scan, no ROS dependency
 ros2/imu_node.py              BNO085 over I2C to /imu
 ros2/good_bot/                robot model, Cartographer configuration, launch files
 firmware/walker_controller/   Arduino sketch: motors, encoders, seat actuators
 web/                          console
 maps/                         saved map
-sim/odometry_check.py         odometry checks
+sim/                          checks on a PC
 docs/                         figures
 ```
 
@@ -92,7 +115,7 @@ ros2 launch nav2_bringup bringup_launch.py use_sim_time:=false map:=maps/room1.y
 python3 ros2/goal_bridge.py
 ```
 
-Obstacle routine:
+Obstacle avoidance:
 
 ```sh
 python3 ros2/avoidance_controller.py
@@ -106,9 +129,10 @@ npm install
 npm start
 ```
 
-Odometry checks, on any PC with Python:
+Checks, on any PC with Python:
 
 ```sh
+python3 sim/avoidance_sim.py > avoidance.csv
 python3 sim/odometry_check.py calibration > calibration.csv
 python3 sim/odometry_check.py loss > loss.csv
 ```
