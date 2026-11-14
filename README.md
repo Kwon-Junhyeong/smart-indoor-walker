@@ -1,10 +1,19 @@
 # Smart Indoor Walker
 
-This project is a full-size indoor walker that comes to its user. It maps the home with a 2D LiDAR, drives to a point picked on that map in a web console, and raises and lowers its seat to help with sitting down and standing up.
+A full-size indoor walker for people who cannot walk safely on their own at home. The user sits on it, touches a point on the map shown on its screen, and the walker drives there. The seat rises and lowers to match a chair, a bed or a toilet.
 
-The reason is where older adults fall. Over 70% of their falls happen at home, most often on the way to the toilet or while sitting down and standing up (KDCA; Korea Consumer Agency). A walker only helps if it is within reach at that moment.
+Over 70% of falls among older adults happen at home, most often on the way to the toilet or while sitting down and standing up (KDCA; Korea Consumer Agency). An ordinary walker does not help someone who cannot stand, and it is rarely within reach at the moment it is needed. The project asked whether a person could spend the day on one device and still get to where they want to go.
 
-The prototype was built from September to December 2025 for the 2025 SDGs Social Problem-Solving Competition, for KRW 320,000 in parts. In the demo it mapped a campus corridor, drove to a goal picked on the map, and lifted its seat. After the competition I cleaned up the software, rewrote the obstacle avoidance, and added the PC simulations below.
+The prototype was built from September to December 2025 for the 2025 SDGs Social Problem-Solving Competition. In the demo it mapped a campus corridor, drove to a point picked on the map, and lifted its seat. After the competition I cleaned up the software, rewrote the obstacle avoidance, and added the PC simulations below.
+
+## What it had to do
+
+Most of the early work went into questions about the hardware and the user, before any software.
+
+- **Carry a seated person through a home.** The wheels have to get over door thresholds and the motors have to move the loaded frame. The wheel motors and their driver were chosen with margin for this instead of by price. They are KRW 80,000 of the KRW 320,000 in parts; the LiDAR is 100,000, the frame 50,000, the two seat actuators 50,000 and the electronics 40,000.
+- **Let the user stay on it.** The seat height adjusts to the chair, bed or toilet the user is moving to, and the rear of the frame opens so the user can sit down straight from a bed or sofa.
+- **Go where the user points.** Touching the map and arriving there had to work every time and without a wait. This was the centre of the project and of the demo, and it is why mapping, localization and planning all run on the walker itself.
+- **Be affordable to the people who need it.** Paid care was put at around KRW 2,000,000. The target price was KRW 500,000 to 550,000, and the project checked which support programs such a device could fall under: the assistive device support program, welfare equipment under long-term care insurance, and local government programs for older adults.
 
 | Part | |
 |---|---|
@@ -34,7 +43,7 @@ Mapping and goal driving are separate modes. Cartographer builds the map from th
 
 **One factor per wheel.** The two encoders disagreed by 5%. A single wheel radius cannot absorb that, so the odometry scales the left encoder increments by 1.0508 and the right ones by 1.0. The speed-to-PWM gains are set per wheel as well, 380 and 480 per m/s.
 
-**Linear actuators for the seat.** A stepper with a lead screw and a servo were the alternatives. The linear actuators cost KRW 25,000 each and run from a standard DC motor driver, so the seat uses the same kind of driver as the wheels.
+**Linear actuators for the seat.** The seat has to lift a person, so a stepper with a lead screw and a hobby servo were compared with linear actuators. The actuators are rated 300 N over a 100 mm stroke at 12 V, cost KRW 25,000 each, and run from a standard DC motor driver.
 
 **A local path search for obstacle avoidance.** After the competition I rewrote the avoidance and tried three approaches in simulation. Marking the beams around each LiDAR return as blocked closed gaps that the walker model fits through. Choosing a heading by how far a walker-wide strip is free got through gaps, but circled in front of a box, because it only looks one step ahead. `local_planner.py` now builds a 5 cm grid from each scan, blocks the cells within the walker radius of a return, makes the next 30 cm expensive, and searches a path to the goal with A*. One more problem showed up: with a box straight ahead, successive plans alternated between passing on the left and on the right. The planner now keeps the side it chose, measured against the direction to the goal, until the path is straight again.
 
