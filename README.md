@@ -12,7 +12,7 @@ Most of the early work went into questions about the hardware and the user, befo
 
 - **Carry a seated person through a home.** The wheels have to get over door thresholds and the motors have to move the loaded frame. The wheel motors and their driver were chosen with margin for this instead of by price. They are KRW 80,000 of the KRW 320,000 in parts; the LiDAR is 100,000, the frame 50,000, the two seat actuators 50,000 and the electronics 40,000.
 - **Let the user stay on it.** The seat height adjusts to the chair, bed or toilet the user is moving to, and the rear of the frame opens so the user can sit down straight from a bed or sofa.
-- **Go where the user points.** Touching the map and arriving there had to work every time and without a wait. This was the centre of the project and of the demo, and it is why mapping, localization and planning all run on the walker itself.
+- **Go where the user points.** Touching the map and arriving there had to work every time and without a wait. This was the centre of the project and of the demo.
 - **Be affordable to the people who need it.** A paid caregiver costs around KRW 2,000,000 a month. The parts cost KRW 320,000, and the selling price was estimated at about KRW 500,000 once the frame is made of a sturdier material and the build is serviceable. The project also checked which support programs such a device could fall under: the assistive device support program, welfare equipment under long-term care insurance, and local government programs for older adults.
 
 | Part | |
@@ -34,6 +34,8 @@ Mapping and goal driving are separate modes. Cartographer builds the map from th
 `serial_motor_driver.py` turns `cmd_vel` into one PWM value per wheel and sends it to the Arduino as a text line. The Arduino drives the motors, counts encoder edges, and reports the totals 50 times a second. The driver integrates them into `/odom` and the `odom` to `base_footprint` transform.
 
 ## Design decisions
+
+**Everything runs on the walker.** The alternative was to send the scans to a PC or a server and compute there. Mapping, localization and planning run on the RDK X5 instead, and the browser only draws the map and sends touches. A touch turns into motion without a round trip over the network, the walker keeps driving when the home Wi-Fi drops, the map of the user's home never leaves the device, and there is no server to pay for or keep running.
 
 **Two controllers.** The alternative was to wire the motor drivers and encoders straight to the RDK X5. Encoder edges have to be counted as they arrive, though, and a Linux process next to SLAM cannot promise that. The Arduino counts encoder A edges in interrupts, independently of the serial read loop on the Linux side, and the RDK X5 does everything that needs ROS.
 
