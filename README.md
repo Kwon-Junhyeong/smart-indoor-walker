@@ -1,62 +1,119 @@
 # Smart Indoor Walker
 
-A full-size walker for older adults at home. It drives to a point selected on its map, avoids obstacles using live LiDAR scans, and raises or lowers its seat to help the user sit down and stand up.
+A full-size indoor walker for older adults. It maps a room with 2D LiDAR, drives to a point selected on the map, avoids obstacles, and raises or lowers the seat to help the user sit and stand.
 
 Top Excellence Award, 2025 SDGs Social Problem-Solving Competition (Sep to Dec 2025)
 
-Software: ROS 2, Cartographer, Python, Arduino  
-Hardware: RDK X5, 2D LiDAR, IMU, wheel encoders, linear actuators
-
-![The walker and three demonstrations: mapping a corridor, driving to a clicked goal, and steering around an obstacle](docs/overview.jpg)
-
-## Why
-
-Over 70% of falls among older adults happen at home, most often while going to the toilet or sitting down and standing up (KDCA; Korea Consumer Agency). The walker drives to the user and assists with sitting and standing.
+Software: ROS 2, Cartographer, Python, Arduino
+Hardware: RDK X5, 2D LiDAR, IMU, two DC gear motors with quadrature encoders, two linear actuators, Arduino UNO
 
 ## System
 
-![System diagram: web console, ROS 2 autonomy on the RDK X5, low-level control on an Arduino, three supply rails from one pack](docs/system.jpg)
+```mermaid
+flowchart LR
+    UI["Web console<br/>map, goal, manual control, seat height"]
+    subgraph RDK["RDK X5, ROS 2"]
+        BR["rosbridge"]
+        LD["LiDAR driver"]
+        IMU["IMU node"]
+        CG["Cartographer"]
+        AV["Goal navigation and<br/>obstacle avoidance"]
+        DRV["serial_motor_driver.py"]
+    end
+    subgraph ARD["Arduino UNO"]
+        FW["walker_controller.ino"]
+    end
+    M["Wheel motors<br/>and encoders"]
+    A["Seat actuators"]
 
-- **High-level computer (RDK X5, ROS 2).** Runs LiDAR SLAM with Cartographer, drives to goals selected in the web console, avoids obstacles using live scans, and runs the base driver in this repository.
-- **Low-level controller (Arduino UNO).** Counts wheel encoder edges using interrupts, drives two wheel motors and two seat actuators, and reports encoder counts every 20 ms.
-- **Power.** One 4S Li-ion pack supplies the system. The wheel drivers use the pack voltage, the seat actuators use 12 V, and the controllers use 5 V.
+    UI <-->|WebSocket| BR
+    BR -->|goal| AV
+    BR -->|/chair_height_cmd| DRV
+    LD -->|/scan| CG
+    LD -->|/scan| AV
+    IMU --> BR
+    CG -->|/map, pose| BR
+    CG -->|pose| AV
+    AV -->|/cmd_vel| DRV
+    DRV <-->|USB serial 115200| FW
+    FW -->|PWM, direction| M
+    M -->|encoder edges| FW
+    FW -->|PWM, direction| A
+```
 
-![The drive base as built](docs/drive_base.jpg)
+ROS 2 handles planning and motion. The Arduino controls the motors and counts encoder edges using interrupts, so Linux scheduling does not delay pulse counting.
+
+## Serial link
+
+```mermaid
+sequenceDiagram
+    participant D as serial_motor_driver.py
+    participant F as walker_controller.ino
+    D->>F: c,LEFT_PWM,RIGHT_PWM
+    D->>F: u, d, or s (seat up, down, stop)
+    loop every 20 ms
+        F->>D: e,LEFT_COUNT,RIGHT_COUNT
+    end
+```
+
+| Line | Direction | Meaning |
+|---|---|---|
+| `c,<left>,<right>` | RDK X5 to Arduino | wheel PWM, −255 to 255 |
+| `u`, `d`, `s` | RDK X5 to Arduino | seat up, down, stop |
+| `e,<left>,<right>` | Arduino to RDK X5 | cumulative encoder counts |
+
+The driver subscribes with a queue depth of 1, so it sends only the latest velocity command. The counts are cumulative, so a dropped line does not lose distance data.
+
+## Base driver
+
+```mermaid
+flowchart LR
+    V["/cmd_vel<br/>v, ω"] --> K["v_L = v − ω × b / 2<br/>v_R = v + ω × b / 2"]
+    K --> P["PWM = 380 × v_L, −480 × v_R<br/>clamped to ±255"]
+    P --> S["c,L,R"]
+    E["e,L,R"] --> D["Δcount since previous line"]
+    D --> W["distance per wheel<br/>Δcount × 2πr / 1100 × bias"]
+    W --> I["Δs = (d_L + d_R)/2<br/>Δθ = (d_R − d_L)/b"]
+    I --> O["/odom and odom → base_footprint"]
+```
+
+| Parameter | Value |
+|---|---|
+| Wheel radius r | 0.038 m |
+| Track b | 0.45 m |
+| Encoder counts per wheel turn | 1100 |
+| Left encoder factor | 1.0508 (the two encoders differed by 5%) |
+| Odometry update | 50 Hz |
+
+## Power
+
+```mermaid
+flowchart LR
+    B["4S Li-ion pack<br/>14.8 V"] --> BMS["BMS"]
+    BMS -->|14.8 V| WD["Wheel motor drivers"]
+    BMS --> C12["12 V converter"] -->|12 V| AD["Dual 10 A motor driver<br/>seat actuators"]
+    BMS --> C5["5 V converter"] -->|5 V| CT["RDK X5, Arduino, sensors"]
+```
+
+The motors and the logic are fed through separate converters.
 
 ## What I built
 
-- Electronics: sensor selection, two-controller architecture, and three supply rails
-- ROS 2 autonomy: LiDAR SLAM, goal driving, and obstacle avoidance
+- Electronics: sensor selection, the two-controller architecture, and the three supply rails
+- ROS 2 autonomy: LiDAR SLAM, goal navigation, and obstacle avoidance
 - The base driver node and Arduino firmware in this repository
-- The web console: live map, goal selection, manual driving, and seat height control
-
-## Design notes
-
-- **Two controllers.** The Arduino counts encoder edges using interrupts, so Linux scheduling cannot delay pulse counting.
-- **Serial link.** The driver retains only the latest velocity command. Encoder counts are cumulative, so a dropped line does not lose distance data.
-- **Calibrated odometry.** The two encoders differed by 5%, so each wheel has separate factors for counts and PWM.
-- **Linear actuators for the seat.** Selected instead of a stepper with a lead screw or a servo. Each costs KRW 25,000 and uses a standard motor driver.
+- The web console
 
 ## Result
 
-- The full-size prototype mapped a campus corridor, drove to goals selected on the map, and steered around obstacles.
-- Parts cost: KRW 320,000.
+The full-size prototype mapped a campus corridor, drove to goals selected on the map, and avoided obstacles. Parts cost KRW 320,000.
 
 ## Repository
 
 ```
-ros2/serial_motor_driver.py                        base driver node: velocity command to wheel PWM, encoder counts to odometry
-firmware/walker_controller/walker_controller.ino   Arduino firmware: encoders, wheel motors, seat actuators
-docs/                                              figures
+ros2/serial_motor_driver.py
+firmware/walker_controller/walker_controller.ino
 ```
-
-## Serial protocol
-
-| Direction | Line | Meaning |
-|---|---|---|
-| RDK X5 → Arduino | `c,<left>,<right>` | wheel PWM, −255 to 255 |
-| RDK X5 → Arduino | `u` / `d` / `s` | seat up, down, stop |
-| Arduino → RDK X5 | `e,<left>,<right>` | cumulative encoder counts, every 20 ms |
 
 ## Run
 
@@ -64,4 +121,4 @@ docs/                                              figures
 python3 ros2/serial_motor_driver.py
 ```
 
-The node subscribes to `cmd_vel` and `/chair_height_cmd`, publishes `odom` and the `odom → base_footprint` transform, and expects the Arduino at `/dev/ttyACM0` with a baud rate of 115200.
+The Arduino is expected at `/dev/ttyACM0`.
