@@ -6,6 +6,16 @@ Over 70% of falls among older adults happen at home, most often on the way to th
 
 The prototype was built from September to December 2025 for the 2025 SDGs Social Problem-Solving Competition. In the demo it mapped a campus corridor, drove to a point picked on the map, and lifted its seat. After the competition I cleaned up the software, rewrote the obstacle avoidance, and added the PC simulations below.
 
+## The home it is meant for
+
+![A home with a bedroom, a toilet, a kitchen and a living room. The walker drives from the bedroom to the toilet, the kitchen, the living room and back, and passes a box that is not on the map.](docs/home.png)
+
+*Simulation, to scale.*
+
+The walker is meant to be used like this: the user is in the bedroom, touches the toilet on the map, and is taken there. The map is divided into named places. `maps/home_places.yaml` gives each place its area and the pose to stop at, and `ros2/places.py` turns a touch into the place it falls in and that place into a goal.
+
+The figure is a simulated run through a 9 m by 7 m home with 0.9 m doors, from the bedroom to the toilet, the kitchen, the living room and back. All four legs arrive, 24 m in about two minutes, with a box on the way that the map does not contain.
+
 ## What it had to do
 
 Most of the early work went into questions about the hardware and the user, before any software.
@@ -47,7 +57,7 @@ Mapping and goal driving are separate modes. Cartographer builds the map from th
 
 **Linear actuators for the seat.** The seat has to lift a person, so a stepper with a lead screw and a hobby servo were compared with linear actuators. The actuators are rated 300 N over a 100 mm stroke at 12 V, cost KRW 25,000 each, and run from a standard DC motor driver.
 
-**A local path search for obstacle avoidance.** After the competition I rewrote the avoidance and tried three approaches in simulation. Marking the beams around each LiDAR return as blocked closed gaps that the walker model fits through. Choosing a heading by how far a walker-wide strip is free got through gaps, but circled in front of a box, because it only looks one step ahead. `local_planner.py` now builds a 5 cm grid from each scan, blocks the cells within the walker radius of a return, makes the next 30 cm expensive, and searches a path to the goal with A*. One more problem showed up: with a box straight ahead, successive plans alternated between passing on the left and on the right. The planner now keeps the side it chose, measured against the direction to the goal, until the path is straight again.
+**A local path search for obstacle avoidance.** After the competition I rewrote the avoidance and tried three approaches in simulation. Marking the beams around each LiDAR return as blocked closed gaps that the walker model fits through. Choosing a heading by how far a walker-wide strip is free got through gaps, but circled in front of a box, because it only looks one step ahead. `local_planner.py` now builds a 5 cm grid from each scan, blocks the cells within the walker radius of a return, makes the next 30 cm expensive and the first 15 cm of that more so, and searches a path to the goal with A*. Two more problems showed up. With a box straight ahead, successive plans alternated between passing on the left and on the right, so the planner now keeps the side it chose, measured against the direction to the goal, until the path is straight again. And in the home simulation the walker turned away from a doorway: cells behind walls counted as free, so a long way round through space it could not see looked cheaper than the door. Only cells that a LiDAR ray has crossed are now free.
 
 ## Map
 
@@ -63,7 +73,7 @@ These are simulations, not measurements on the walker. Each one imports the plan
 
 ![Simulation, top view to scale: the path through a corridor with three boxes, and the LiDAR returns at one moment.](docs/avoidance.png)
 
-`sim/avoidance_sim.py` puts `local_planner.py` in a corridor 2.8 m wide with three boxes. The LiDAR is simulated with 360 beams and Gaussian range noise of 1 cm standard deviation, and the goal is 7.5 m ahead. In this one seeded run, a circular model of 0.30 m radius stops 10 cm from the goal after 35.9 s and 8.5 m of travel, and its closest pass to a wall is 14 cm. The model is a circle, not the measured outline of the walker, and this avoidance has been run in simulation only.
+`sim/avoidance_sim.py` puts `local_planner.py` in a corridor 2.8 m wide with three boxes. The LiDAR is simulated with 360 beams and Gaussian range noise of 1 cm standard deviation, and the goal is 7.5 m ahead. In this one seeded run, a circular model of 0.30 m radius stops 11 cm from the goal after 37.3 s and 8.7 m of travel, and its closest pass to a wall is 16 cm. `sim/home_sim.py` is the run through the home shown above; there the closest pass is 12 cm, in the doorways. The model is a circle, not the measured outline of the walker, and this avoidance has been run in simulation only.
 
 ### Wheel odometry
 
@@ -91,11 +101,12 @@ ros2/diff_drive.py            kinematics and odometry, no ROS dependency
 ros2/goal_bridge.py           /goal_pose to the Nav2 navigate_to_pose action
 ros2/avoidance_controller.py  obstacle avoidance node
 ros2/local_planner.py         grid path search from a scan, no ROS dependency
+ros2/places.py                named places on the map
 ros2/imu_node.py              BNO085 over I2C to /imu
 ros2/good_bot/                robot model, Cartographer configuration, launch files
 firmware/walker_controller/   Arduino sketch: motors, encoders, seat actuators
 web/                          console
-maps/                         saved map
+maps/                         saved map, and the simulated home with its places
 sim/                          checks on a PC
 docs/                         figures
 ```
@@ -143,6 +154,8 @@ npm start
 Checks, on any PC with Python:
 
 ```sh
+python3 sim/home.py
+python3 sim/home_sim.py > home.csv
 python3 sim/avoidance_sim.py > avoidance.csv
 python3 sim/odometry_check.py calibration > calibration.csv
 python3 sim/odometry_check.py loss > loss.csv
