@@ -8,7 +8,7 @@ The prototype was built from September to December 2025 for the 2025 SDGs Social
 
 ## The home it is meant for
 
-![A home with a bedroom, a toilet, a kitchen and a living room. The walker drives from the bedroom to the toilet, the kitchen, the living room and back, and passes a box that is not on the map.](docs/home.png)
+![Floor plan of a home with a bedroom, a toilet, a kitchen and a living room, the four legs the walker drives, and the screen on which the user picks a place.](docs/home.png)
 
 *Simulation, to scale.*
 
