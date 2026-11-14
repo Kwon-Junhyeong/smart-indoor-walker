@@ -1,124 +1,120 @@
 # Smart Indoor Walker
 
-A full-size indoor walker for older adults. It maps a room with 2D LiDAR, drives to a point selected on the map, avoids obstacles, and raises or lowers the seat to help the user sit and stand.
+A full-size walker for older adults at home. It maps a floor with a 2D LiDAR, drives to a point picked on that map in a web console, steps around an obstacle, and raises and lowers its seat.
 
-Top Excellence Award, 2025 SDGs Social Problem-Solving Competition (Sep to Dec 2025)
+The walker was built from September to December 2025 for the 2025 SDGs Social Problem-Solving Competition. This repository holds its software, cleaned up afterward, and a script that checks the odometry code on a PC.
 
-Software: ROS 2, Cartographer, Python, Arduino
-Hardware: RDK X5, 2D LiDAR, IMU, two DC gear motors with quadrature encoders, two linear actuators, Arduino UNO
-
-## System
-
-```mermaid
-flowchart LR
-    UI["Web console<br/>map, goal, manual control, seat height"]
-    subgraph RDK["RDK X5, ROS 2"]
-        BR["rosbridge"]
-        LD["LiDAR driver"]
-        IMU["IMU node"]
-        CG["Cartographer"]
-        AV["Goal navigation and<br/>obstacle avoidance"]
-        DRV["serial_motor_driver.py"]
-    end
-    subgraph ARD["Arduino UNO"]
-        FW["walker_controller.ino"]
-    end
-    M["Wheel motors<br/>and encoders"]
-    A["Seat actuators"]
-
-    UI <-->|WebSocket| BR
-    BR -->|goal| AV
-    BR -->|/chair_height_cmd| DRV
-    LD -->|/scan| CG
-    LD -->|/scan| AV
-    IMU --> BR
-    CG -->|/map, pose| BR
-    CG -->|pose| AV
-    AV -->|/cmd_vel| DRV
-    DRV <-->|USB serial 115200| FW
-    FW -->|PWM, direction| M
-    M -->|encoder edges| FW
-    FW -->|PWM, direction| A
-```
-
-ROS 2 handles planning and motion. The Arduino controls the motors and counts encoder edges using interrupts, so Linux scheduling does not delay pulse counting.
-
-## Serial link
-
-```mermaid
-sequenceDiagram
-    participant D as serial_motor_driver.py
-    participant F as walker_controller.ino
-    D->>F: c,LEFT_PWM,RIGHT_PWM
-    D->>F: u, d, or s (seat up, down, stop)
-    loop every 20 ms
-        F->>D: e,LEFT_COUNT,RIGHT_COUNT
-    end
-```
-
-| Line | Direction | Meaning |
-|---|---|---|
-| `c,<left>,<right>` | RDK X5 to Arduino | wheel PWM, −255 to 255 |
-| `u`, `d`, `s` | RDK X5 to Arduino | seat up, down, stop |
-| `e,<left>,<right>` | Arduino to RDK X5 | cumulative encoder counts |
-
-The driver subscribes with a queue depth of 1, so it sends only the latest velocity command. The counts are cumulative, so a dropped line does not lose distance data.
-
-## Base driver
-
-```mermaid
-flowchart LR
-    V["/cmd_vel<br/>v, ω"] --> K["v_L = v − ω × b / 2<br/>v_R = v + ω × b / 2"]
-    K --> P["PWM = 380 × v_L, −480 × v_R<br/>clamped to ±255"]
-    P --> S["c,L,R"]
-    E["e,L,R"] --> D["Δcount since previous line"]
-    D --> W["distance per wheel<br/>Δcount × 2πr / 1100 × bias"]
-    W --> I["Δs = (d_L + d_R)/2<br/>Δθ = (d_R − d_L)/b"]
-    I --> O["/odom and odom → base_footprint"]
-```
-
-| Parameter | Value |
+| Part | |
 |---|---|
-| Wheel radius r | 0.038 m |
-| Track b | 0.45 m |
-| Encoder counts per wheel turn | 1100 |
-| Left encoder factor | 1.0508 (the two encoders differed by 5%) |
-| Odometry update | 50 Hz |
+| Computer | RDK X5, ROS 2 Humble |
+| Low-level controller | Arduino UNO |
+| Sensors | 2D LiDAR, BNO085 IMU, two wheel encoders |
+| Actuators | two DC gear motors, two linear actuators for the seat |
+| Console | React in a browser, roslib over a rosbridge WebSocket |
 
-## Power
+## How it works
 
-```mermaid
-flowchart LR
-    B["4S Li-ion pack<br/>14.8 V"] --> BMS["BMS"]
-    BMS -->|14.8 V| WD["Wheel motor drivers"]
-    BMS --> C12["12 V converter"] -->|12 V| AD["Dual 10 A motor driver<br/>seat actuators"]
-    BMS --> C5["5 V converter"] -->|5 V| CT["RDK X5, Arduino, sensors"]
-```
+![System figure. Blue: commands on their way to the motors. Orange: measurements and estimates. The tinted area runs on the RDK X5.](docs/system.png)
 
-The motors and the logic are fed through separate converters.
+The console talks to ROS through rosbridge. Clicking the map publishes a pose on `/goal_pose`. `goal_bridge.py` forwards it to Nav2, which localizes on the saved map with AMCL and publishes `cmd_vel`. The console also sends the drive pad as `cmd_vel`, the seat height, and the start and stop of the obstacle routine.
 
-## What I built
+Mapping and goal driving are separate modes. Cartographer builds the map from the LiDAR and the IMU, without wheel odometry. The map is saved, and Nav2 then loads it. Nav2, the obstacle routine and the drive pad all publish `cmd_vel` with no arbitration between them, so one is used at a time.
 
-- Electronics: sensor selection, the two-controller architecture, and the three supply rails
-- ROS 2 autonomy: LiDAR SLAM, goal navigation, and obstacle avoidance
-- The base driver node and Arduino firmware in this repository
-- The web console
+`serial_motor_driver.py` turns `cmd_vel` into one PWM value per wheel and sends it to the Arduino as a text line. The Arduino drives the motors and counts encoder A edges in interrupts, independently of the serial read loop on the Linux side. It reports the running totals 50 times a second, and the driver integrates them into `/odom` and the `odom` to `base_footprint` transform.
 
-## Result
+The left and right PWM gains are 380 and 480 per m/s. The odometry scales the left encoder increments by 1.0508 and the right ones by 1.0.
 
-The full-size prototype mapped a campus corridor, drove to goals selected on the map, and avoided obstacles. Parts cost KRW 320,000.
+## Map
+
+![The saved map, drawn from maps/room1.pgm, with a 5 m scale bar.](docs/map.png)
+
+This is the map the walker saved on 1 December 2025, drawn from `maps/room1.pgm`. Nav2 loads `maps/room1.yaml`, which references this image.
+
+## Obstacle routine
+
+<img src="docs/avoidance.png" width="620" alt="Top view, to scale: the walker stops when the LiDAR sees an obstacle within 0.7 m, then drives a fixed detour around it.">
+
+`avoidance_controller.py` is a state machine that the console starts and stops. The walker drives forward at 0.4 m/s. When the nearest LiDAR return within ±30° of straight ahead is closer than 0.7 m, it stops and drives a fixed detour: left 90 degrees, 0.5 m, back to the first heading, 1.5 m, right 92 degrees, 0.6 m, back to the first heading, 0.7 m. Turns are closed on the IMU yaw with a tolerance of 5 degrees, and distances on the wheel odometry.
+
+## Odometry checks
+
+These are simulations, not measurements on the walker. `sim/odometry_check.py` generates encoder totals and feeds them to `WheelOdometry`, the class the driver uses.
+
+![Simulation. Left: a straight drive, with and without the wheel factor. Right: final position difference against the probability that a serial line is dropped.](docs/odometry.png)
+
+The first check is the wheel factor. On a straight drive with a left encoder that under-reads by the calibrated amount, the raw counts turn the estimated heading by 6.1 degrees per metre, which puts the estimate 0.47 m to the side after 3 m. With the factor the estimate stays on the line. The stream is generated with the same factor, so this shows what the correction is worth, not how accurate the calibration is.
+
+The second check is the serial format. The Arduino sends running totals, not the counts since the last line. Each line of an 8 m S-curve is dropped with a given probability, and the final position is compared with a run that loses nothing. Over 200 trials, the mean difference stays under 2 cm for running totals even at a drop probability of 50%. If each line carried an increment, the mean difference would be about 1.5 m at 20%.
+
+## Serial lines
+
+| Direction | Line | Meaning |
+|---|---|---|
+| to the Arduino | `c,<left>,<right>` | wheel PWM, -255 to 255 |
+| to the Arduino | `u`, `d`, `s` | seat up, down, stop |
+| from the Arduino | `e,<left>,<right>` | running encoder totals, every 20 ms |
+
+The driver keeps only the newest `cmd_vel` in its queue.
 
 ## Repository
 
-```
-ros2/serial_motor_driver.py
-firmware/walker_controller/walker_controller.ino
+```text
+ros2/serial_motor_driver.py   cmd_vel to wheel PWM, encoder totals to /odom and TF
+ros2/diff_drive.py            kinematics and odometry, no ROS dependency
+ros2/goal_bridge.py           /goal_pose to the Nav2 navigate_to_pose action
+ros2/avoidance_controller.py  obstacle routine
+ros2/imu_node.py              BNO085 over I2C to /imu
+ros2/good_bot/                robot model, Cartographer configuration, launch files
+firmware/walker_controller/   Arduino sketch: motors, encoders, seat actuators
+web/                          console
+maps/                         saved map
+sim/odometry_check.py         odometry checks
+docs/                         figures
 ```
 
 ## Run
 
-```bash
+On the RDK X5, with the LiDAR driver, Cartographer, Nav2 and rosbridge installed and `ros2/good_bot` built in a workspace:
+
+```sh
+ros2 launch bluesea2 udp_lidar.launch
+ros2 launch good_bot display.launch.py
+python3 ros2/imu_node.py
+ros2 launch rosbridge_server rosbridge_websocket_launch.xml
+ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 base_footprint base_link
 python3 ros2/serial_motor_driver.py
 ```
 
-The Arduino is expected at `/dev/ttyACM0`.
+Mapping:
+
+```sh
+ros2 launch good_bot cartographer.launch.py
+```
+
+Driving to a goal on the saved map:
+
+```sh
+ros2 launch nav2_bringup bringup_launch.py use_sim_time:=false map:=maps/room1.yaml
+python3 ros2/goal_bridge.py
+```
+
+Obstacle routine:
+
+```sh
+python3 ros2/avoidance_controller.py
+```
+
+Console:
+
+```sh
+cd web
+npm install
+npm start
+```
+
+Odometry checks, on any PC with Python:
+
+```sh
+python3 sim/odometry_check.py calibration > calibration.csv
+python3 sim/odometry_check.py loss > loss.csv
+```
