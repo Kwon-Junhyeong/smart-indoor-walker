@@ -30,12 +30,6 @@ The left and right PWM gains are 380 and 480 per m/s. The odometry scales the le
 
 This is the map the walker saved on 1 December 2025, drawn from `maps/room1.pgm`. Nav2 loads `maps/room1.yaml`, which references this image.
 
-## Obstacle routine
-
-<img src="docs/avoidance.png" width="620" alt="Top view, to scale: the walker stops when the LiDAR sees an obstacle within 0.7 m, then drives a fixed detour around it.">
-
-`avoidance_controller.py` is a state machine that the console starts and stops. The walker drives forward at 0.4 m/s. When the nearest LiDAR return within ±30° of straight ahead is closer than 0.7 m, it stops and drives a fixed detour: left 90 degrees, 0.5 m, back to the first heading, 1.5 m, right 92 degrees, 0.6 m, back to the first heading, 0.7 m. Turns are closed on the IMU yaw with a tolerance of 5 degrees, and distances on the wheel odometry.
-
 ## Odometry checks
 
 These are simulations, not measurements on the walker. `sim/odometry_check.py` generates encoder totals and feeds them to `WheelOdometry`, the class the driver uses.
