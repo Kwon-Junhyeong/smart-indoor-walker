@@ -21,6 +21,6 @@ setup(
     maintainer="Junhyeong Kwon",
     maintainer_email="meoruu00@gmail.com",
     description="Robot model and Cartographer launch files for the walker",
-    license="TODO",
+    license="MIT",
     entry_points={"console_scripts": []},
 )

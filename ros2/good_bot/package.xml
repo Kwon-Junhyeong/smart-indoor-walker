@@ -5,7 +5,7 @@
   <version>0.0.0</version>
   <description>Robot model and Cartographer launch files for the walker</description>
   <maintainer email="meoruu00@gmail.com">Junhyeong Kwon</maintainer>
-  <license>TODO</license>
+  <license>MIT</license>
 
   <depend>rclpy</depend>
   <depend>std_msgs</depend>
