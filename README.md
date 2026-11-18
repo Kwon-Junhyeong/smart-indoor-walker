@@ -2,6 +2,8 @@
 
 A powered indoor walker for people who need help sitting down, standing up or walking when no caregiver is home. The user sits on it, touches a place on the map on its screen, and the walker drives there. Built for the 2025 SDGs Social Problem-Solving Competition (Top Excellence Award).
 
+![System](docs/system.png)
+
 ## Built to carry a seated person
 
 In Korea, over 70% of falls among older adults happen at home (KDCA; Korea Consumer Agency). Conventional walkers do not carry a seated user. This one does, and the hardware was designed around that load.
@@ -11,17 +13,11 @@ In Korea, over 70% of falls among older adults happen at home (KDCA; Korea Consu
 
 ## Touch a place, and the walker goes there
 
-The map of the home is divided into named places. A touch on the toilet in the map becomes a goal pose, and Nav2 drives the walker there on the saved map. This was the centre of the project and of the demo.
-
-![At home: touch a place on the map and ride there](docs/home.png)
-
-*The route is simulated in a 9 m x 7 m home (`sim/`).*
+A touch on the map in the web console becomes a goal pose, and Nav2 drives the walker there on the saved map. This was the centre of the project and of the demo.
 
 ## Everything runs on the walker
 
 Mapping, localization and planning run on the RDK X5, and the browser only draws the map and sends touches. A touch turns into motion without a round trip over a network, and the walker keeps driving when the Wi-Fi drops. The map of the user's home stays on the device. An Arduino counts the encoder edges in interrupts and drives the motors and the seat, so their timing does not depend on Linux.
-
-![System](docs/system.png)
 
 ## Run
 
