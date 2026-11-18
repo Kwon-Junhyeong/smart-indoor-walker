@@ -15,9 +15,9 @@ In Korea, over 70% of falls among older adults happen at home (KDCA; Korea Consu
 
 A touch on the map in the web console becomes a goal pose, and Nav2 drives the walker there on the saved map. This was the centre of the project and of the demo.
 
-## Everything runs on the walker
+## Mapping and control run on the walker
 
-Mapping, localization and planning run on the RDK X5, and the browser only draws the map and sends touches. A touch turns into motion without a round trip over a network, and the walker keeps driving when the Wi-Fi drops. The map of the user's home stays on the device. An Arduino counts the encoder edges in interrupts and drives the motors and the seat, so their timing does not depend on Linux.
+Mapping, localization and planning run on the RDK X5, while the browser draws the map and sends goals. Once a goal is received, the walker drives on its own and keeps driving when the Wi-Fi drops. The map of the user's home is stored on the device. An Arduino counts the encoder edges in interrupts and drives the motors and the seat, so their timing does not depend on Linux.
 
 ## Run
 
