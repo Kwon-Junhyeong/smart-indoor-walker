@@ -13,7 +13,7 @@ In Korea, over 70% of falls among older adults happen at home (KDCA; Korea Consu
 
 ## Touch a place, and the walker goes there
 
-A touch on the map in the web console becomes a goal pose, and Nav2 drives the walker there on the saved map. This was the centre of the project and of the demo.
+A touch on the map in the web console becomes a goal pose, and Nav2 drives the walker there on the saved map. This was the center of the project and of the demo.
 
 ## Mapping and control run on the walker
 
