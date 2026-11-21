@@ -15,6 +15,10 @@ In Korea, over 70% of falls among older adults happen at home (KDCA; Korea Consu
 
 A touch on the map in the web console becomes a goal pose, and Nav2 drives the walker there on the saved map. This was the center of the project and of the demo.
 
+## Obstacle avoidance from each scan
+
+`ros2/local_planner.py` builds a 5 cm grid from each LiDAR scan, blocks the cells within the walker's radius of a return, makes the cells near obstacles expensive and searches a path to the goal with A*. Only cells that a LiDAR ray has crossed count as free. In simulation, in a corridor 2.8 m wide with three obstacles, the walker reaches a goal 7.5 m ahead and passes no closer than 16 cm to a wall.
+
 ## Mapping and control run on the walker
 
 Mapping, localization and planning run on the RDK X5, while the browser draws the map and sends goals. Once a goal is received, the walker drives on its own and keeps driving when the Wi-Fi drops. The map of the user's home is stored on the device. An Arduino counts the encoder edges in interrupts and drives the motors and the seat, so their timing does not depend on Linux.
@@ -39,5 +43,7 @@ Driving to a goal on the saved map:
 ros2 launch nav2_bringup bringup_launch.py map:=maps/room1.yaml
 python3 ros2/goal_bridge.py
 ```
+
+Obstacle avoidance: `python3 ros2/avoidance_controller.py`
 
 Console: `cd web && npm install && npm start`
