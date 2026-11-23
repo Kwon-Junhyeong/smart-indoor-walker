@@ -13,20 +13,6 @@ Tested in a campus corridor: Cartographer built the map, and the walker drove to
 - **Scan-based obstacle avoidance.** A* on a 5 cm grid rebuilt from each LiDAR scan, tested in simulation.
 - **Odometry calibration.** A per-wheel scale factor corrects a 5% difference between the left and right encoders.
 
-## Contents
-
-- [Problem and users](#problem-and-users)
-- [Design requirements](#design-requirements)
-- [System architecture](#system-architecture)
-- [Mechanical design](#mechanical-design)
-- [Low-level control and serial protocol](#low-level-control-and-serial-protocol)
-- [Goal navigation from the web console](#goal-navigation-from-the-web-console)
-- [Scan-based obstacle avoidance](#scan-based-obstacle-avoidance)
-- [Onboard processing](#onboard-processing)
-- [Results](#results)
-- [Repository structure](#repository-structure)
-- [Setup and run](#setup-and-run)
-
 ## Problem and users
 
 The walker is designed for two groups:
