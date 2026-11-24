@@ -36,7 +36,7 @@ Conventional walkers do not carry a seated user. This walker keeps the user seat
 
 ![System](docs/system.png)
 
-Dashed boxes are existing packages, boxes with a solid colored outline are code in this repository, and grey boxes are hardware.
+Dashed boxes are existing packages, boxes with a solid colored outline are code in this repository, and gray boxes are hardware.
 
 - **Existing packages, used unmodified:** Cartographer (SLAM), Nav2 (path planning and goal navigation), rosbridge (between ROS 2 and the browser) and the LiDAR driver (`bluesea2`).
 - **Developed for this project:** the frame, the electronics, the Arduino firmware, the ROS 2 nodes (motor driver, odometry, IMU, goal bridge, obstacle avoidance), the robot model with the Cartographer configuration, and the web console.
